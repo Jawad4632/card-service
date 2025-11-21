@@ -28,56 +28,44 @@ public class CartService {
     }
 
     public void addItem(Long userId, AddCartItemRequest req) {
+
         if (req.quantity() == null || req.quantity() <= 0) {
             throw new BadRequestException("Quantity must be > 0");
         }
 
-        // Get product from Product Service
         ProductDto product = productClient.getProduct(req.productId());
 
         if (!"ACTIVE".equalsIgnoreCase(product.status())) {
             throw new BadRequestException("Product is not active");
         }
 
-        // Load existing cart
         List<CartItem> cart = getCart(userId);
 
-        // Check if product already exists in cart
-        Optional<CartItem> existing = cart.stream()
-                .filter(i -> i.productId().equals(req.productId()))
-                .findFirst();
+        cart.removeIf(i -> i.productId().equals(req.productId()));
 
-        if (existing.isPresent()) {
-            // Update quantity
-            cart.remove(existing.get());
-            cart.add(new CartItem(
-                    existing.get().productId(),
-                    product.name(),
-                    product.price(),
-                    req.quantity()
-            ));
-        } else {
-            // Add new item
-            cart.add(new CartItem(
-                    product.id(),
-                    product.name(),
-                    product.price(),
-                    req.quantity()
-            ));
-        }
+        cart.add(new CartItem(
+                product.id(),
+                product.name(),
+                product.price(),
+                req.quantity()
+        ));
 
         saveCart(userId, cart);
     }
 
-    private List<CartItem> getCart(Long userId) {
-        String json = redisTemplate.opsForValue().get(cartKey(userId));
-        if (json == null) return new ArrayList<>();
+
+    public List<CartItem> getCart(Long userId) {
         try {
-            return Arrays.asList(mapper.readValue(json, CartItem[].class));
+            String json = redisTemplate.opsForValue().get(cartKey(userId));
+            if (json == null) return new ArrayList<>();
+
+            CartItem[] arr = mapper.readValue(json, CartItem[].class);
+            return new ArrayList<>(Arrays.asList(arr));
         } catch (Exception e) {
-            throw new RuntimeException("Error reading cart", e);
+            throw new RuntimeException("JSON_PARSE_ERROR", e);
         }
     }
+
 
     private void saveCart(Long userId, List<CartItem> cart) {
         try {
@@ -86,5 +74,23 @@ public class CartService {
         } catch (Exception e) {
             throw new RuntimeException("Error saving cart", e);
         }
+    }
+
+    public void removeItem(Long userId, Long productId) {
+        List<CartItem> cart = getCart(userId);
+        if (cart.isEmpty()) {
+            throw new BadRequestException("Cart is empty");
+        }
+        boolean remove = cart.removeIf(i -> i.productId().equals(productId));
+        if (!remove) {
+            throw new BadRequestException("Item not found in cart");
+        }
+
+        if (cart.isEmpty()) {
+            // Cart becomes empty → delete the key
+            redisTemplate.delete(cartKey(userId));
+        }
+
+        saveCart(userId, cart);
     }
 }
