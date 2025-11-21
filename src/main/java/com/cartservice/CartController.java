@@ -1,9 +1,12 @@
 package com.cartservice;
 
 import com.cartservice.dto.AddCartItemRequest;
+import com.cartservice.dto.CartItem;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/cart")
@@ -21,6 +24,11 @@ public class CartController {
     public ResponseEntity<Void> removeItem(@PathVariable Long userId, @PathVariable Long productId) {
         cartService.removeItem(userId, productId);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{userId}")
+    public ResponseEntity<List<CartItem>> getCart(@PathVariable Long userId) {
+        return ResponseEntity.ok(cartService.getCart(userId));
     }
 
 
