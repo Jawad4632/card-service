@@ -3,6 +3,7 @@ package com.cartservice;
 import com.cartservice.client.ProductClient;
 import com.cartservice.dto.AddCartItemRequest;
 import com.cartservice.dto.CartItem;
+import com.cartservice.dto.CartResponse;
 import com.cartservice.dto.ProductDto;
 import com.cartservice.exception.BadRequestException;
 import lombok.RequiredArgsConstructor;
@@ -91,5 +92,90 @@ public class CartService {
         }
 
         saveCart(userId, cart);
+    }
+
+
+    private String couponKey(Long userId) {
+            return "cart:coupon:" + userId;
+    }
+
+    public void applyCoupon(Long userId, String coupon) {
+        if (coupon == null || coupon.isBlank()) {
+            throw new BadRequestException("Invalid coupon");
+        }
+
+        if (!isValidCoupon(coupon)) {
+            throw new BadRequestException("Invalid or expired coupon");
+        }
+
+        redisTemplate.opsForValue().set(couponKey(userId), coupon, Duration.ofHours(2));
+    }
+
+    private boolean isValidCoupon(String coupon) {
+        return switch (coupon.toUpperCase()) {
+            case "SAVE10", "WELCOME50", "NEWUSER", "FLAT100" -> true;
+            default -> false;
+        };
+    }
+
+    public void removeCoupon(Long userId) {
+        redisTemplate.delete(couponKey(userId));
+    }
+
+    public CartResponse getCartWithTotal(Long userId) {
+
+        List<CartItem> items = getCart(userId);
+
+        double subTotal = items.stream()
+                .mapToDouble(i -> i.price() * i.quantity())
+                .sum();
+
+        double itemDiscount = items.stream()
+                .mapToDouble(this::calculateProductDiscount)
+                .sum();
+
+        double cartDiscount = calculateCartDiscount(subTotal);
+
+        String coupon = redisTemplate.opsForValue().get(couponKey(userId));
+        double couponDiscount = 0;
+
+        if (coupon != null) {
+            couponDiscount = applyCouponDiscount(coupon, subTotal - itemDiscount - cartDiscount);
+        }
+
+        double totalDiscount = itemDiscount + cartDiscount + couponDiscount;
+        double grandTotal = subTotal - totalDiscount;
+
+        return new CartResponse(
+                items,
+                subTotal,
+                totalDiscount,
+                grandTotal,
+                coupon
+        );
+    }
+
+    private double applyCouponDiscount(String coupon, double amount) {
+        return switch (coupon.toUpperCase()) {
+            case "SAVE10" -> amount * 0.10;      // 10% off
+            case "WELCOME50" -> 50.0;            // flat ₹50 off
+            case "NEWUSER" -> amount * 0.15;     // 15% off
+            case "FLAT100" -> 100.0;             // flat ₹100
+            default -> 0;
+        };
+    }
+
+    private double calculateProductDiscount(CartItem item) {
+        if (item.price() > 1000) {
+            return item.price() * item.quantity() * 0.10;
+        }
+        return 0;
+    }
+
+    private double calculateCartDiscount(double subTotal) {
+        if (subTotal > 5000) {
+            return 200;
+        }
+        return 0;
     }
 }

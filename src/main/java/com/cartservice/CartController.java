@@ -2,6 +2,8 @@ package com.cartservice;
 
 import com.cartservice.dto.AddCartItemRequest;
 import com.cartservice.dto.CartItem;
+import com.cartservice.dto.CartResponse;
+import com.cartservice.dto.CouponRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -31,6 +33,21 @@ public class CartController {
         return ResponseEntity.ok(cartService.getCart(userId));
     }
 
+    @PostMapping("/{userId}/apply-coupon")
+    public ResponseEntity<Void> applyCoupon(@PathVariable Long userId, @RequestBody CouponRequest req) {
+        cartService.applyCoupon(userId, req.coupon());
+        return ResponseEntity.ok().build();
+    }
 
+    @DeleteMapping("/{userId}/coupon")
+    public ResponseEntity<Void> removeCoupon(@PathVariable Long userId) {
+        cartService.removeCoupon(userId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/discount/{userId}")
+    public ResponseEntity<CartResponse> getCartWithTotal(@PathVariable Long userId) {
+        return ResponseEntity.ok(cartService.getCartWithTotal(userId));
+    }
 
 }
