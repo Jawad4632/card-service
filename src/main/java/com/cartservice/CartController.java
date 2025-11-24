@@ -1,9 +1,9 @@
 package com.cartservice;
 
 import com.cartservice.dto.AddCartItemRequest;
-import com.cartservice.dto.CartItem;
 import com.cartservice.dto.CartResponse;
 import com.cartservice.dto.CouponRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,46 +15,53 @@ import java.util.List;
 @RequestMapping("/api/cart")
 @RequiredArgsConstructor
 public class CartController {
+
     private final CartService cartService;
 
-    @PostMapping("/{userId}/items")
-    public ResponseEntity<Void> addItem(@PathVariable Long userId, @RequestBody AddCartItemRequest req) {
-        cartService.addItem(userId, req);
+    private Long getUserId(HttpServletRequest request) {
+        return Long.valueOf(request.getHeader("X-User-Id")); // Extracted from Gateway
+    }
+
+    @PostMapping("/items")
+    public ResponseEntity<Void> addItem(HttpServletRequest request,
+                                        @RequestBody AddCartItemRequest req) {
+        cartService.addItem(getUserId(request), req);
         return ResponseEntity.ok().build();
     }
 
-    @DeleteMapping("/{userId}/items/{productId}")
-    public ResponseEntity<Void> removeItem(@PathVariable Long userId, @PathVariable Long productId) {
-        cartService.removeItem(userId, productId);
+    @DeleteMapping("/items/{productId}")
+    public ResponseEntity<Void> removeItem(HttpServletRequest request,
+                                           @PathVariable Long productId) {
+        cartService.removeItem(getUserId(request), productId);
         return ResponseEntity.noContent().build();
     }
 
-    @GetMapping("/{userId}")
-    public ResponseEntity<List<CartItem>> getCart(@PathVariable Long userId) {
-        return ResponseEntity.ok(cartService.getCart(userId));
+    @GetMapping
+    public ResponseEntity<List<?>> getCart(HttpServletRequest request) {
+        return ResponseEntity.ok(cartService.getCart(getUserId(request)));
     }
 
-    @PostMapping("/{userId}/apply-coupon")
-    public ResponseEntity<Void> applyCoupon(@PathVariable Long userId, @RequestBody CouponRequest req) {
-        cartService.applyCoupon(userId, req.coupon());
+    @PostMapping("/apply-coupon")
+    public ResponseEntity<Void> applyCoupon(HttpServletRequest request,
+                                            @RequestBody CouponRequest req) {
+        cartService.applyCoupon(getUserId(request), req.coupon());
         return ResponseEntity.ok().build();
     }
 
-    @DeleteMapping("/{userId}/coupon")
-    public ResponseEntity<Void> removeCoupon(@PathVariable Long userId) {
-        cartService.removeCoupon(userId);
+    @DeleteMapping("/coupon")
+    public ResponseEntity<Void> removeCoupon(HttpServletRequest request) {
+        cartService.removeCoupon(getUserId(request));
         return ResponseEntity.noContent().build();
     }
 
-    @GetMapping("/discount/{userId}")
-    public ResponseEntity<CartResponse> getCartWithTotal(@PathVariable Long userId) {
-        return ResponseEntity.ok(cartService.getCartWithTotal(userId));
+    @GetMapping("/discount")
+    public ResponseEntity<CartResponse> getCartWithTotal(HttpServletRequest request) {
+        return ResponseEntity.ok(cartService.getCartWithTotal(getUserId(request)));
     }
 
-    @PostMapping("/{userId}/checkout")
-    public ResponseEntity<Long> checkout(@PathVariable Long userId) {
-        Long orderId = cartService.checkout(userId);
+    @PostMapping("/checkout")
+    public ResponseEntity<Long> checkout(HttpServletRequest request) {
+        Long orderId = cartService.checkout(getUserId(request));
         return ResponseEntity.status(HttpStatus.CREATED).body(orderId);
     }
-
 }
