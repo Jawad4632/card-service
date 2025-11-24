@@ -1,11 +1,10 @@
 package com.cartservice;
 
+import com.cartservice.client.OrderClient;
 import com.cartservice.client.ProductClient;
-import com.cartservice.dto.AddCartItemRequest;
-import com.cartservice.dto.CartItem;
-import com.cartservice.dto.CartResponse;
-import com.cartservice.dto.ProductDto;
+import com.cartservice.dto.*;
 import com.cartservice.exception.BadRequestException;
+import com.cartservice.exception.RemoteServiceException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
@@ -21,6 +20,7 @@ import java.util.List;
 public class CartService {
     private final RedisTemplate<String, String> redisTemplate;
     private final ProductClient productClient;
+    private final OrderClient orderClient;
     private final ObjectMapper mapper = new ObjectMapper();
 
     private String cartKey(Long userId) {
@@ -178,4 +178,42 @@ public class CartService {
         }
         return 0;
     }
+
+    public Long checkout(Long userId) {
+
+        // 1) fetch cart
+        CartResponse cart = getCartWithTotal(userId);
+        if (cart.items().isEmpty()) {
+            throw new BadRequestException("Cart is empty");
+        }
+
+        // 2) build OrderCreateRequest
+        List<OrderItemRequest> orderItems = cart.items().stream()
+                .map(i -> new OrderItemRequest(
+                        i.productId(),
+                        i.name(),
+                        i.price(),
+                        i.quantity(),
+                        i.price() * i.quantity()
+                ))
+                .toList();
+
+        OrderCreateRequest req = new OrderCreateRequest(
+                userId,
+                cart.grandTotal(),
+                orderItems
+        );
+
+        Long orderId = orderClient.createOrder(req);
+
+        if (orderId == null) {
+            throw new RemoteServiceException("Order Service returned null");
+        }
+
+        redisTemplate.delete("cart:user:" + userId);
+        redisTemplate.delete("cart:coupon:user:" + userId);
+
+        return orderId;
+    }
+
 }

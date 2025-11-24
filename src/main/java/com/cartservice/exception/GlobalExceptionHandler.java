@@ -1,12 +1,9 @@
 package com.cartservice.exception;
 
-import org.apache.coyote.BadRequestException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-
-import java.rmi.RemoteException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -20,12 +17,12 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(BadRequestException.class)
-    public ResponseEntity<ErrorResponse> handleBadRequest(BadRequestException ex) {
+    public ResponseEntity<ErrorResponse> handleBadRequest(com.cartservice.exception.BadRequestException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(new ErrorResponse("BAD_REQUEST", ex.getMessage()));
     }
 
-    @ExceptionHandler(RemoteException.class)
+    @ExceptionHandler(RemoteServiceException.class)
     public ResponseEntity<ErrorResponse> handleRemote(RemoteServiceException ex) {
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
                 .body(new ErrorResponse("REMOTE_SERVICE_ERROR", ex.getMessage()));
@@ -34,9 +31,6 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneric(Exception ex) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(new ErrorResponse("INTERNAL_ERROR", ex.getMessage()));
+                .body(new ErrorResponse("INTERNAL_ERROR", "Something went wrong"));
     }
 }
-
-
-

@@ -5,6 +5,7 @@ import com.cartservice.dto.CartItem;
 import com.cartservice.dto.CartResponse;
 import com.cartservice.dto.CouponRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -48,6 +49,12 @@ public class CartController {
     @GetMapping("/discount/{userId}")
     public ResponseEntity<CartResponse> getCartWithTotal(@PathVariable Long userId) {
         return ResponseEntity.ok(cartService.getCartWithTotal(userId));
+    }
+
+    @PostMapping("/{userId}/checkout")
+    public ResponseEntity<Long> checkout(@PathVariable Long userId) {
+        Long orderId = cartService.checkout(userId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(orderId);
     }
 
 }
